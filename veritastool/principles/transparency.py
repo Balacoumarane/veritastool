@@ -232,16 +232,25 @@ class Transparency:
             self.tran_shap_extra[model_num] = explanation.base_values
             self.tran_shap_values[model_num] = explanation.values
         else:
-            explainer_shap = shap.Explainer(self.model_params[model_num].model_object.predict_proba,self.tran_processed_data) 
+            # TODO: Check if correct implementation
+            explainer_shap = shap.Explainer(self.model_params[model_num].model_object.predict_proba, self.tran_processed_data) 
             explanation = explainer_shap(self.tran_processed_data)
             base = explanation.base_values
-            shap_values= np.moveaxis(explanation.values, -1, 0) 
-            if(shap_values.shape[0]==2):
-                idx = list(self.model_params[0].model_object.classes_).index(self.model_params[0].pos_label[0])
-                shap_values = shap_values[idx]
-                base = base[:,idx]
+            shap_values = explanation.values
+            # shap_values = np.moveaxis(explanation.values, -1, 0) 
+            # import pdb; pdb.set_trace()
+            if (shap_values.ndim == 3):
+                if(shap_values.shape[-1]==2):
+                    shap_values = np.moveaxis(shap_values, -1, 0) 
+                    idx = list(self.model_params[0].model_object.classes_).index(self.model_params[0].pos_label[0])
+                    shap_values = shap_values[idx]
+                    base = base[:,idx]
+                else:
+                    shap_values = np.moveaxis(shap_values, -1, 0)
+                    shap_values = list(shap_values)
             else:
-                shap_values = list(shap_values)
+                shap_values = shap_values
+            # import pdb; pdb.set_trace()
             self.tran_shap_values[model_num] = shap_values
             self.tran_shap_extra[model_num] = base
         
@@ -295,6 +304,7 @@ class Transparency:
         ----------
         This function does not return anything. It stores the top features and their shap values in tran_top_features with model number as the key. 
         """
+        # import pdb; pdb.set_trace()
         if(type(self.tran_shap_values[model_num])==list):
             importances = np.sum(np.mean(np.abs(self.tran_shap_values[model_num]),axis=1),axis=0) 
         else:
@@ -576,13 +586,19 @@ class Transparency:
             else:
                 y_pred = self.model_params[0].model_object.predict(self.model_params[0].x_test)
                 y_prob = self.model_params[0].model_object.predict_proba(self.model_params[0].x_test)
-                if y_prob.shape[1] > 2 or self.model_params[0].model_object.classes_[1] != 1:
+                # import pdb; pdb.set_trace()
+                if self.model_params[0].model_object.classes_[1] != 1:
+                # if y_prob.shape[1] > 2 or self.model_params[0].model_object.classes_[1] != 1:
                     if hasattr(self, 'multiclass_flag') and not self.model_params[0].multi_class_flag:
                         y_pred, pos_label = self._check_label(y_pred, self.model_params[0].pos_label, self.model_params[0].neg_label, obj_in=self.model_params[0], y_pred_flag=True)
                         y_prob = process_y_prob(self.model_params[0].model_object.classes_ , y_prob, 
                                             self.model_params[0].pos_label, self.model_params[0].neg_label)
                 else:
-                    y_prob = self.model_params[0].model_object.predict_proba(self.model_params[0].x_test)[:,1]
+                    # import pdb; pdb.set_trace()
+                    try:
+                        y_prob = self.model_params[0].model_object.predict_proba(self.model_params[0].x_test)[:,1]
+                    except:
+                        y_prob = self.model_params[0].model_object.predict_proba(self.model_params[0].x_test)
                 base_score_new = score_func(y_pred_new = [y_pred],
                                             y_prob_new = [y_prob])
             self.model_params[0].x_test[feature] = original
